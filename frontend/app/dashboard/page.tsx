@@ -4,7 +4,8 @@ import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import axios from "axios";
 import Navbar from "@/components/Navbar"; 
-import AcademicFilters from "../../components/AcademicFilters"; // <--- ARTIQ TƏK İMPORT OLUNUB
+import AcademicFilters from "../../components/AcademicFilters"; // <--- KOMPONENT
+
 import { ArrowRight, BookOpen } from "lucide-react";
 
 interface NewsItem {
@@ -36,6 +37,7 @@ export default function DashboardPage() {
         
         const [userRes, newsRes] = await Promise.all([
             axios.get("http://127.0.0.1:8000/api/users/profile/", config),
+            // API sorğusu artıq Query parametrlərinə cavab verir
             axios.get(`http://127.0.0.1:8000/api/users/news/?${filterQuery}`, config)
         ]);
 
@@ -58,12 +60,13 @@ export default function DashboardPage() {
       fetchData(filterParams);
   }, [filterParams, fetchData]);
 
-  const handleFilterChange = (filters: { uni?: string, fac?: string, spec?: string }) => {
+  // BU HİSSƏ YENİDƏN DÜZGÜN ŞƏKİLDƏ YAZILIR (useCallback ilə)
+  const handleFilterChange = useCallback((filters: { uni?: string, fac?: string, spec?: string }) => {
       const newFilters = Object.fromEntries(
         Object.entries(filters).filter(([_, v]) => v)
       );
       setFilterParams(newFilters);
-  };
+  }, []); // Asılılıq siyahısı boşdur, çünki setFilterParams sabitdir
 
   if (loading) return <div className="min-h-screen bg-[#0F172A] flex items-center justify-center text-white">🚀 Yüklənir...</div>;
 
@@ -81,11 +84,13 @@ export default function DashboardPage() {
         
         {/* 📢 FILTR PANELİ */}
         <div className="mb-8">
-            <AcademicFilters onFilterChange={handleFilterChange} />
+            {/* 👇 DÜZƏLİŞ BURADADIR: handleFilterChange funksiyasını göndəririk */}
+            <AcademicFilters onFilterChange={handleFilterChange} /> 
         </div>
 
         {/* --- MƏLUMAT KARTLARI (GRID) --- */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-12">
+             
              {/* SOL: Şəxsi Məlumatlar */}
              <div className="bg-slate-800 p-6 rounded-xl border border-slate-700 shadow-lg">
                 <h3 className="text-slate-400 text-xs font-bold mb-4 uppercase tracking-wider border-b border-slate-700 pb-2">Şəxsi Məlumatlar</h3>
