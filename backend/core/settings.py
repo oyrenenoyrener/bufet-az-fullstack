@@ -1,4 +1,5 @@
 ﻿import os
+import dj_database_url # <--- BU VACİBDİR
 from pathlib import Path
 from datetime import timedelta
 from dotenv import load_dotenv 
@@ -67,11 +68,12 @@ WSGI_APPLICATION = 'core.wsgi.application'
 ASGI_APPLICATION = 'core.asgi.application' # <--- Çat üçün vacibdir
 
 # --- BAZA (SQLite qalsın, problemsizdir) ---
+# --- VERİLƏNLƏR BAZASI (Ağıllı Seçim) ---
 DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
-    }
+    'default': dj_database_url.config(
+        default='sqlite:///' + str(BASE_DIR / 'db.sqlite3'),
+        conn_max_age=600
+    )
 }
 
 # --- ÇAT YADDAŞI ---
@@ -126,4 +128,10 @@ CORS_ALLOW_METHODS = [
     "PATCH",
     "POST",
     "PUT",
+]
+# --- TƏHLÜKƏSİZLİK (Railway Domeninə İcazə) ---
+# Railway sənə "up.railway.app" ilə bitən domen verir.
+CSRF_TRUSTED_ORIGINS = [
+    'https://*.railway.app',
+    'https://bufet-frontend.railway.app', # Sənin frontend linkin (təxmini)
 ]
