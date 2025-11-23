@@ -3,14 +3,12 @@ from rest_framework.response import Response
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.views import APIView
 from rest_framework.parsers import MultiPartParser, FormParser
-from django.db.models import Q
+from django.db.models import Q # <--- FILTER üçün vacibdir
 import os
 
-# OCR funksiyasını çağırırıq (Əgər utils qovluğun varsa)
 try:
     from utils.ocr import extract_id_data
 except ImportError:
-    # Əgər hələ ocr.py yoxdursa, xəta verməsin deyə boş funksiya
     def extract_id_data(path): return {"first_name": "Pending", "last_name": "Pending"}
 
 from .models import (
@@ -31,6 +29,29 @@ from .serializers import (
     UserSettingsSerializer
 )
 
+# --- FİLTR KÖMƏKÇİSİ (Bütün ListView-lar üçün) ---
+
+def apply_academic_filters(queryset, request):
+    # Query parametrlərini alırıq
+    uni_id = request.query_params.get('university_id')
+    fac_id = request.query_params.get('faculty_id')
+    spec_id = request.query_params.get('specialty_id')
+
+    if uni_id:
+        # UserKYC-dəki university_id-yə görə filterlə (Məlumatı paylaşanın Universiteti)
+        queryset = queryset.filter(author__kyc__university_id=uni_id)
+    
+    if fac_id:
+        # Fakültəyə görə filterlə (Group -> Specialty -> Faculty)
+        queryset = queryset.filter(author__kyc__group__specialty__faculty_id=fac_id)
+
+    if spec_id:
+        # İxtisasa görə filterlə
+        queryset = queryset.filter(author__kyc__group__specialty_id=spec_id)
+    
+    return queryset
+
+
 # --- 1. AUTH (Giriş/Qeydiyyat + OCR) ---
 
 class RegisterView(generics.CreateAPIView):
@@ -43,7 +64,7 @@ class RegisterView(generics.CreateAPIView):
         if serializer.is_valid():
             user = serializer.save()
             
-            # --- 🔥 OCR SİSTEMİ İŞƏ DÜŞÜR ---
+            # --- OCR SİSTEMİ ---
             try:
                 kyc = user.kyc
                 if kyc.id_card_front:
@@ -80,7 +101,7 @@ class UserSettingsView(generics.UpdateAPIView):
     def get_object(self):
         return self.request.user
 
-# --- 4. XƏBƏRLƏR ---
+# --- 4. XƏBƏRLƏR (FILTR ƏLAVƏ OLUNDU) ---
 
 class NewsListView(generics.ListAPIView):
     serializer_class = NewsSerializer
@@ -91,9 +112,22 @@ class NewsListView(generics.ListAPIView):
         user_uni = None
         if hasattr(user, 'kyc') and user.kyc.university:
             user_uni = user.kyc.university
-        return News.objects.filter(
-            Q(university=user_uni) | Q(university__isnull=True)
-        ).order_by('-created_at')
+            
+        # 1. Başlanğıc: Ümumi xəbərlər (Global)
+        queryset = News.objects.filter(Q(university__isnull=True)).order_by('-created_at')
+        
+        # 2. Xəbərləri Userin öz Universitetinə görə əlavə et (əgər seçibsə)
+        if user_uni:
+            queryset = queryset | News.objects.filter(university=user_uni)
+            
+        # 3. Digər Filterlər (Məsələn, Admin başqa univeristetin xəbərini görmək istəyirsə)
+        # News modelinin 'author' field-i yoxdur, ona görə filteri Uni field-ə tətbiq edirik
+        filter_uni_id = self.request.query_params.get('university_id')
+        if filter_uni_id:
+            # Əgər uni_id parametr kimi gəlsə, sadəcə o uni-nin xəbərlərini göstər
+            queryset = News.objects.filter(university_id=filter_uni_id)
+        
+        return queryset.distinct() # Təkrarları silirik
 
 # --- 5. SETUP (Seçim Ekranı) ---
 
@@ -153,23 +187,29 @@ class AssignGroupView(APIView):
         except Exception as e:
             return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
-# --- 6. BAZAR (MARKETPLACE) ---
+# --- 6. BAZAR (MARKETPLACE) (FILTR ƏLAVƏ OLUNDU) ---
 
 class MarketListCreateView(generics.ListCreateAPIView):
-    queryset = MarketItem.objects.all()
     serializer_class = MarketItemSerializer
     permission_classes = [IsAuthenticated]
     parser_classes = (MultiPartParser, FormParser)
 
+    def get_queryset(self):
+        queryset = MarketItem.objects.all().order_by('-created_at')
+        return apply_academic_filters(queryset, self.request)
+
     def perform_create(self, serializer):
         serializer.save(seller=self.request.user)
 
-# --- 7. AXIŞ (FEED) ---
+# --- 7. AXIŞ (FEED) (FILTR ƏLAVƏ OLUNDU) ---
 
 class FeedListCreateView(generics.ListCreateAPIView):
-    queryset = FeedPost.objects.all()
     serializer_class = FeedPostSerializer
     permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        queryset = FeedPost.objects.all().order_by('-created_at')
+        return apply_academic_filters(queryset, self.request)
 
     def perform_create(self, serializer):
         serializer.save(author=self.request.user)
