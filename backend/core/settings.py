@@ -13,15 +13,32 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = os.getenv('SECRET_KEY', 'django-insecure-TEST-KEY-CHANGE-ME-FOR-PROD')
 DEBUG = os.getenv('DEBUG', 'True') == 'True' 
 
-# ALLOWED_HOSTS
-ALLOWED_HOSTS = ['127.0.0.1', 'localhost']
+# backend/core/settings.py daxilində:
+
+# --- ALLOWED_HOSTS HİSSƏSİ ---
+# BACKEND HOST-u dəqiq təyin edirik
+BACKEND_HOST = 'bufet-az-fullstack-production.up.railway.app' 
+# FRONTEND HOST-u environment variable-dan götürürük
 RAILWAY_FRONTEND_DOMAIN = os.getenv('FRONTEND_DOMAIN_RAILWAY', 'frontend-production-xxxxx.up.railway.app') 
+
+# Default localhost və Backend domenlərini daxil edirik
+ALLOWED_HOSTS = ['127.0.0.1', 'localhost', BACKEND_HOST]
+
+# Əgər Frontend linki mövcuddursa, onu və wildcardı əlavə edirik.
 if RAILWAY_FRONTEND_DOMAIN:
     ALLOWED_HOSTS.append(RAILWAY_FRONTEND_DOMAIN)
-    ALLOWED_HOSTS.append(f'.{RAILWAY_FRONTEND_DOMAIN}')
-    ALLOWED_HOSTS.append('*.up.railway.app')
-    ALLOWED_HOSTS.append('railway.app')
+    ALLOWED_HOSTS.append('*.up.railway.app') # <--- BÜTÜN RAILWAY DOMENLƏRİ
+# --- ALLOWED_HOSTS HİSSƏSİ BİTTİ ---
 
+# ... Qalan ayarlar olduğu kimi qalır ...
+
+# CSRF-i də yeniləyirik, çünki BACKEND_HOST dəyişib
+CSRF_TRUSTED_ORIGINS = [
+    'https://*.up.railway.app', 
+    'http://localhost:3000', 
+    'https://' + RAILWAY_FRONTEND_DOMAIN,
+    'https://' + BACKEND_HOST # <--- BURANI DA ƏLAVƏ ET
+]
 # --- QURAŞDIRILMIŞ TƏTBİQLƏR ---
 INSTALLED_APPS = [
     'daphne', 
