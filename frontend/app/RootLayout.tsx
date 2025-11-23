@@ -1,20 +1,25 @@
-﻿import { geistMono } from "./geistMono";
-import { geistSans } from "./geistSans";
+﻿import type { Metadata } from "next";
+import { Inter } from "next/font/google";
+import "./globals.css";
 
+// Biz yalnız standart Inter şriftini işlədirik
+const inter = Inter({ subsets: ["latin"] });
+
+export const metadata: Metadata = {
+  title: "bufet.az",
+  description: "Tələbələrin Rəqəmsal Məkanı",
+};
 
 export default function RootLayout({
-    children,
+  children,
 }: Readonly<{
-    children: React.ReactNode;
+  children: React.ReactNode;
 }>) {
-    return (
-        <html lang="en">
-            <body
-                className={`${geistSans.variable} ${geistMono.variable} antialiased`}
-            >
-                {children}
-            </body>
-            suppressHydrationWarning
-        </html>
-    );
+  return (
+    <html lang="az" suppressHydrationWarning={true}>
+      <body className={inter.className} suppressHydrationWarning={true}>
+        {children}
+      </body>
+    </html>
+  );
 }
