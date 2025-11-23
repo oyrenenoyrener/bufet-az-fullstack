@@ -1,11 +1,12 @@
-﻿"use client";
+﻿// frontend/src/app/dashboard/page.tsx
+
+"use client";
 
 import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import axios from "axios";
 import Navbar from "@/components/Navbar"; 
-import AcademicFilters from "../../components/AcademicFilters"; // <--- KOMPONENT
-
+import AcademicFilters from "../../components/AcademicFilters"; 
 import { ArrowRight, BookOpen } from "lucide-react";
 
 interface NewsItem {
@@ -16,6 +17,9 @@ interface NewsItem {
   created_at: string;
   university_name: string;
 }
+
+// 👇 DÜZƏLİŞ: LIVE API ünvanını Environment Variable-dan alırıq
+const LIVE_API_URL = process.env.NEXT_PUBLIC_API_URL + "/api/users"; 
 
 export default function DashboardPage() {
   const router = useRouter();
@@ -36,9 +40,10 @@ export default function DashboardPage() {
         const filterQuery = new URLSearchParams(filters).toString();
         
         const [userRes, newsRes] = await Promise.all([
-            axios.get("http://127.0.0.1:8000/api/users/profile/", config),
-            // API sorğusu artıq Query parametrlərinə cavab verir
-            axios.get(`http://127.0.0.1:8000/api/users/news/?${filterQuery}`, config)
+            // Link dəyişdirildi
+            axios.get(`${LIVE_API_URL}/profile/`, config), 
+            // Link dəyişdirildi
+            axios.get(`${LIVE_API_URL}/news/?${filterQuery}`, config)
         ]);
 
         setUser(userRes.data);
@@ -60,13 +65,12 @@ export default function DashboardPage() {
       fetchData(filterParams);
   }, [filterParams, fetchData]);
 
-  // BU HİSSƏ YENİDƏN DÜZGÜN ŞƏKİLDƏ YAZILIR (useCallback ilə)
   const handleFilterChange = useCallback((filters: { uni?: string, fac?: string, spec?: string }) => {
       const newFilters = Object.fromEntries(
         Object.entries(filters).filter(([_, v]) => v)
       );
       setFilterParams(newFilters);
-  }, []); // Asılılıq siyahısı boşdur, çünki setFilterParams sabitdir
+  }, []); 
 
   if (loading) return <div className="min-h-screen bg-[#0F172A] flex items-center justify-center text-white">🚀 Yüklənir...</div>;
 
@@ -84,8 +88,7 @@ export default function DashboardPage() {
         
         {/* 📢 FILTR PANELİ */}
         <div className="mb-8">
-            {/* 👇 DÜZƏLİŞ BURADADIR: handleFilterChange funksiyasını göndəririk */}
-            <AcademicFilters onFilterChange={handleFilterChange} /> 
+            <AcademicFilters onFilterChange={handleFilterChange} />
         </div>
 
         {/* --- MƏLUMAT KARTLARI (GRID) --- */}
@@ -137,7 +140,7 @@ export default function DashboardPage() {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {newsList.length > 0 ? newsList.map(news => (
                 <div key={news.id} className="bg-slate-800 p-4 rounded-xl border border-slate-700 hover:border-slate-600 transition flex flex-col h-full">
-                    {news.image && (<img src={news.image.startsWith("http") ? news.image : `http://127.0.0.1:8000${news.image}`} alt={news.title} className="w-full h-40 object-cover rounded mb-3"/>)}
+                    {news.image && (<img src={news.image.startsWith("http") ? news.image : `${process.env.NEXT_PUBLIC_API_URL}${news.image}`} alt={news.title} className="w-full h-40 object-cover rounded mb-3"/>)}
                     <span className="text-[10px] bg-slate-900 px-2 py-1 rounded text-slate-400 self-start mb-2 border border-slate-700 truncate max-w-full">{news.university_name}</span>
                     <h3 className="font-bold text-md mb-2 line-clamp-2 text-white break-words leading-tight">{news.title}</h3>
                     <p className="text-xs text-slate-400 line-clamp-3 flex-1 break-words leading-relaxed">{news.content}</p>
