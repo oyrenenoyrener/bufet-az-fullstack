@@ -12,28 +12,37 @@ class UserKYCInline(admin.StackedInline):
     model = UserKYC
     can_delete = False
     verbose_name_plural = 'Şəxsi Məlumatlar (KYC)'
-    readonly_fields = ('image_preview_front', 'image_preview_back', 'image_preview_student')
+    readonly_fields = ('image_preview_front', 'image_preview_back', 'image_preview_student', 'verification_status') # Added status to display
 
     def image_preview_front(self, obj):
-        return format_html('<img src="{}" style="max-height: 150px; border-radius: 10px;" />', obj.id_card_front.url) if obj.id_card_front else "-"
+        if not obj.id_card_front: return format_html('<span style="color:red;">Şəkil yoxdur</span>')
+        return format_html('<img src="{}" style="max-height: 150px; border-radius: 10px;" />', obj.id_card_front.url)
     
     def image_preview_back(self, obj):
-        return format_html('<img src="{}" style="max-height: 150px; border-radius: 10px;" />', obj.id_card_back.url) if obj.id_card_back else "-"
+        if not obj.id_card_back: return format_html('<span style="color:red;">Şəkil yoxdur</span>')
+        return format_html('<img src="{}" style="max-height: 150px; border-radius: 10px;" />', obj.id_card_back.url)
 
     def image_preview_student(self, obj):
-        return format_html('<img src="{}" style="max-height: 150px; border-radius: 10px;" />', obj.student_card.url) if obj.student_card else "-"
+        if not obj.student_card: return format_html('<span style="color:red;">Şəkil yoxdur</span>')
+        return format_html('<img src="{}" style="max-height: 150px; border-radius: 10px;" />', obj.student_card.url)
+    
+    image_preview_front.short_description = "Vəsiqə (Ön) - Baxış"
+    image_preview_back.short_description = "Vəsiqə (Arxa) - Baxış"
+    image_preview_student.short_description = "Tələbə Bileti - Baxış"
+
 
 @admin.register(User)
 class UserAdmin(BaseUserAdmin):
     inlines = (UserKYCInline,)
-    list_display = ('phone_number', 'get_full_name', 'role', 'is_active', 'created_at')
-    list_filter = ('role', 'is_active')
+    # Əlavə olaraq is_verified sahəsini list_display-a əlavə edirik
+    list_display = ('phone_number', 'get_full_name', 'role', 'is_active', 'is_verified', 'created_at') 
+    list_filter = ('role', 'is_active', 'is_verified')
     search_fields = ('phone_number',)
     ordering = ('-created_at',)
     
     fieldsets = (
         (None, {'fields': ('phone_number', 'password')}),
-        ('Status', {'fields': ('role', 'is_active', 'is_staff')}),
+        ('Status', {'fields': ('role', 'is_active', 'is_staff', 'is_verified')}), # is_verified added to fieldsets
         ('İcazələr', {'fields': ('is_superuser', 'groups', 'user_permissions')}),
     )
 
@@ -43,6 +52,7 @@ class UserAdmin(BaseUserAdmin):
     get_full_name.short_description = "Ad Soyad"
 
 # --- 2. UNİVERSİTET SİSTEMİ ---
+
 class FacultyInline(admin.TabularInline):
     model = Faculty
     extra = 1
@@ -50,7 +60,7 @@ class FacultyInline(admin.TabularInline):
 @admin.register(University)
 class UniversityAdmin(admin.ModelAdmin):
     inlines = [FacultyInline]
-    list_display = ('name', 'slug')
+    list_display = ('name', 'slug', 'is_branch')
     search_fields = ('name',)
 
 @admin.register(Faculty)
@@ -63,6 +73,8 @@ class SpecialtyAdmin(admin.ModelAdmin):
     list_display = ('name', 'code', 'faculty')
     list_filter = ('faculty__university',)
     search_fields = ('name',)
+    # FIX: Əvvəlki XƏTANI həll edir (UUID clash)
+    ordering = ('name',) 
 
 @admin.register(StudentGroup)
 class StudentGroupAdmin(admin.ModelAdmin):
@@ -93,7 +105,11 @@ class FeedPostAdmin(admin.ModelAdmin):
 
 @admin.register(FeedComment)
 class FeedCommentAdmin(admin.ModelAdmin):
-    list_display = ('author', 'content', 'created_at')
+    list_display = ('author', 'short_content', 'created_at')
+    
+    def short_content(self, obj):
+        return obj.content[:50] + "..." if len(obj.content) > 50 else obj.content
+    short_content.short_description = "Rəy Məzmunu"
 
 # --- 5. DİGƏRLƏRİ ---
 @admin.register(News)
@@ -106,4 +122,4 @@ class CollectiveAdmin(admin.ModelAdmin):
 
 @admin.register(Message)
 class MessageAdmin(admin.ModelAdmin):
-    list_display = ('sender', 'collective', 'timestamp')
+    list_display = ('sender', 'collective', 'message_type', 'timestamp')
