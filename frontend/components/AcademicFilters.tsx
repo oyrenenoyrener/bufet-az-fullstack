@@ -1,12 +1,9 @@
-﻿// frontend/src/components/AcademicFilters.tsx
-
-"use client";
+﻿"use client";
 
 import { useState, useEffect } from "react";
 import axios from "axios";
 import { Filter, X } from "lucide-react";
 
-// Bu komponent əsas səhifəyə filter parametrlərini ötürəcək.
 export default function AcademicFilters({ onFilterChange }: { onFilterChange: (filters: { uni?: string, fac?: string, spec?: string }) => void }) {
   
   const [universities, setUniversities] = useState<any[]>([]);
@@ -18,45 +15,55 @@ export default function AcademicFilters({ onFilterChange }: { onFilterChange: (f
   const [selectedFaculty, setSelectedFaculty] = useState("");
   const [selectedSpecialty, setSelectedSpecialty] = useState("");
 
-  const API_URL = "http://127.0.0.1:8000/api/users"; // Qısa yol
+  const API_URL = "http://127.0.0.1:8000/api/users";
 
-  // 1. Universitetləri gətir
+  // 1. Universitetləri gətir (Yalnız bir dəfə)
   useEffect(() => {
     axios.get(`${API_URL}/universities/`)
       .then(res => setUniversities(res.data))
       .catch(console.error);
   }, []);
 
-  // 2. Fakültələri gətir
+  // 2. Fakültələri gətir (Seçim dəyişəndə)
   useEffect(() => {
     if (selectedUni) {
-      setFaculties([]); setSpecialties([]); setSelectedFaculty(""); setSelectedSpecialty("");
-      axios.get(`${API_URL}/faculties/?university_id=${selectedUni}`)
-        .then(res => setFaculties(res.data));
+        // Universitet dəyişdi, Fakültə və İxtisas state-lərini sıfırlayırıq
+        setSelectedFaculty(""); 
+        setSelectedSpecialty("");
+        setSpecialties([]); // Əvvəlcə İxtisasları boşaldırıq ki, seçim təmiz olsun
+        
+        axios.get(`${API_URL}/faculties/?university_id=${selectedUni}`)
+          .then(res => setFaculties(res.data));
     } else {
-        setFaculties([]); setSpecialties([]); setSelectedFaculty(""); setSelectedSpecialty("");
+        // Universitet seçimi sıfırlananda
+        setFaculties([]); 
+        setSelectedFaculty(""); 
+        setSpecialties([]);
+        setSelectedSpecialty("");
     }
   }, [selectedUni]);
 
-  // 3. İxtisasları gətir
+  // 3. İxtisasları gətir (Fakültə dəyişəndə)
   useEffect(() => {
     if (selectedFaculty) {
-      setSpecialties([]); setSelectedSpecialty("");
-      axios.get(`${API_URL}/specialties/?faculty_id=${selectedFaculty}`)
-        .then(res => setSpecialties(res.data));
+        setSelectedSpecialty("");
+        axios.get(`${API_URL}/specialties/?faculty_id=${selectedFaculty}`)
+          .then(res => setSpecialties(res.data));
     } else {
-        setSpecialties([]); setSelectedSpecialty("");
+        setSpecialties([]);
+        setSelectedSpecialty("");
     }
   }, [selectedFaculty]);
 
-  // 4. Əsas Səhifəni Yenilə
+  // 4. Əsas Səhifəni Yenilə (Yalnız son seçim dəyişəndə parentə xəbər ver)
   useEffect(() => {
+      // Parentə yalnız ən son və ən yuxarıdakı filteri göndərməliyik
       onFilterChange({ 
           uni: selectedUni, 
           fac: selectedFaculty, 
           spec: selectedSpecialty 
       });
-  }, [selectedUni, selectedFaculty, selectedSpecialty]);
+  }, [selectedUni, selectedFaculty, selectedSpecialty, onFilterChange]);
 
 
   const handleClear = () => {
