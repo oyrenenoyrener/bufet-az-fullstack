@@ -176,3 +176,25 @@ class FeedPostSerializer(serializers.ModelSerializer):
         if obj.is_anonymous: return "Universitet Məxfidir"
         try: return obj.author.kyc.university.name
         except: return ""
+        # backend/users/serializers.py SONUNA ƏLAVƏ ET
+
+from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
+from rest_framework import serializers
+
+class PhoneNumberTokenObtainPairSerializer(TokenObtainPairSerializer):
+    # DÜZƏLİŞ 1: Serializer-ə deyirik ki, 'phone_number' adlı bir sahə gözləsin
+    phone_number = serializers.CharField(write_only=True)
+    
+    # DÜZƏLİŞ 2: Authentication üçün istifadə olunacaq sahə
+    username_field = 'phone_number'
+
+    # DÜZƏLİŞ 3: Gələn 'phone_number'-i 'username' adıyla çevirib yoxlamaya göndəririk
+    def validate(self, attrs):
+        # Normalda JWT 'username' axtarır. Biz 'phone_number' dəyərini 'username'-ə köçürürük.
+        attrs['username'] = attrs['phone_number']
+        
+        # 'phone_number' sahəsini silirik ki, valideyinin validasiyası iki dəfə keçməsin
+        del attrs['phone_number'] 
+        
+        # İndi standart JWT validasiyası işləyəcək
+        return super().validate(attrs)
