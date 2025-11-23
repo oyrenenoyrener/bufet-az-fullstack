@@ -1,11 +1,10 @@
 ﻿"use client";
-import AcademicFilters from "../../components/AcademicFilters"; 
-// Və ya @/components/AcademicFilters
+
 import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import axios from "axios";
-import Navbar from "@/components/Navbar";
-import AcademicFilters from "../../components/AcademicFilters"; // <--- YENİ KOMPONENT
+import Navbar from "@/components/Navbar"; 
+import AcademicFilters from "../../components/AcademicFilters"; // <--- ARTIQ TƏK İMPORT OLUNUB
 import { ArrowRight, BookOpen } from "lucide-react";
 
 interface NewsItem {
@@ -22,9 +21,8 @@ export default function DashboardPage() {
   const [user, setUser] = useState<any>(null);
   const [newsList, setNewsList] = useState<NewsItem[]>([]);
   const [loading, setLoading] = useState(true);
-  const [filterParams, setFilterParams] = useState({}); // <--- YENİ: Filterləri saxlayır
+  const [filterParams, setFilterParams] = useState({});
 
-  // 1. Məlumatı Çəkən Əsas Funksiya (Filterlərə həssasdır)
   const fetchData = useCallback(async (filters: any) => {
     const token = localStorage.getItem("access_token");
     if (!token) { router.push("/login"); return; }
@@ -34,13 +32,10 @@ export default function DashboardPage() {
     try {
         const config = { headers: { Authorization: `Bearer ${token}` } };
         
-        // Filter URL parametrlərini hazırlayırıq
         const filterQuery = new URLSearchParams(filters).toString();
         
-        // Həm Profil, Həm Xəbərləri çəkirik
         const [userRes, newsRes] = await Promise.all([
             axios.get("http://127.0.0.1:8000/api/users/profile/", config),
-            // Xəbərləri filterləyərək çəkirik
             axios.get(`http://127.0.0.1:8000/api/users/news/?${filterQuery}`, config)
         ]);
 
@@ -52,7 +47,6 @@ export default function DashboardPage() {
              localStorage.removeItem("access_token");
              router.push("/login");
         } else {
-             // Ətraflı xətanı konsolda göstərək
              console.error("Dashboard Load Error:", err.response?.data);
         }
     } finally {
@@ -60,14 +54,11 @@ export default function DashboardPage() {
     }
   }, [router]);
 
-  // 2. Səhifə yüklənəndə və Filterlər dəyişəndə Məlumatı Yenilə
   useEffect(() => {
       fetchData(filterParams);
   }, [filterParams, fetchData]);
 
-  // 3. Filter Komponentindən gələn dəyişiklikləri qəbul et
   const handleFilterChange = (filters: { uni?: string, fac?: string, spec?: string }) => {
-      // Yalnız boş olmayan filterləri saxla
       const newFilters = Object.fromEntries(
         Object.entries(filters).filter(([_, v]) => v)
       );
@@ -88,30 +79,49 @@ export default function DashboardPage() {
             <p className="text-slate-400">Xoş gəldin, {user?.first_name} 👋</p>
         </div>
         
-        {/* 📢 FILTR PANELİ BURADADIR */}
+        {/* 📢 FILTR PANELİ */}
         <div className="mb-8">
             <AcademicFilters onFilterChange={handleFilterChange} />
         </div>
 
         {/* --- MƏLUMAT KARTLARI (GRID) --- */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-12">
-             
              {/* SOL: Şəxsi Məlumatlar */}
-             <div className="bg-slate-800 p-6 rounded-2xl border border-slate-700 shadow-lg">
+             <div className="bg-slate-800 p-6 rounded-xl border border-slate-700 shadow-lg">
                 <h3 className="text-slate-400 text-xs font-bold mb-4 uppercase tracking-wider border-b border-slate-700 pb-2">Şəxsi Məlumatlar</h3>
-                {/* ... (Bu hissə eynidir) ... */}
+                <div className="space-y-3 text-sm">
+                    <div className="flex justify-between"><span className="text-slate-500">Ad Soyad:</span> 
+                        <span className="font-medium text-white">
+                            {user?.first_name === "Pending" ? <span className="text-yellow-500">Təsdiq Gözləyir</span> : `${user?.first_name} ${user?.last_name}`}
+                        </span>
+                    </div>
+                    <div className="flex justify-between"><span className="text-slate-500">FİN Kod:</span> <span className="font-mono text-[#FF6B00]">{user?.fin_code}</span></div>
+                    <div className="flex justify-between"><span className="text-slate-500">Telefon:</span> <span className="font-mono text-white">{user?.phone_number}</span></div>
+                </div>
              </div>
 
              {/* SAĞ: Akademik Məlumatlar */}
-             <div className="bg-slate-800 p-6 rounded-2xl border border-slate-700 shadow-lg">
+             <div className="bg-slate-800 p-6 rounded-xl border border-slate-700 shadow-lg">
                 <h3 className="text-slate-400 text-xs font-bold mb-4 uppercase tracking-wider border-b border-slate-700 pb-2">Akademik Məlumatlar</h3>
-                {/* ... (Bu hissə eynidir) ... */}
-                <button 
-                    onClick={() => router.push("/chat")}
-                    className="mt-4 w-full py-3 bg-[#FF6B00] hover:bg-orange-600 rounded-lg text-white font-bold transition flex items-center justify-center gap-2 shadow-sm text-sm"
-                >
-                    <span>💬</span> Kollektivə Qoşul
-                </button>
+                
+                {user?.group_info ? (
+                    <div className="space-y-3 text-sm">
+                        <div><span className="text-slate-500 text-xs block mb-1">Universitet:</span> <span className="font-bold text-white">{user.group_info.university}</span></div>
+                        <div className="grid grid-cols-2 gap-4">
+                            <div><span className="text-slate-500 text-xs block mb-1">Fakültə:</span> <span>{user.group_info.faculty}</span></div>
+                            <div><span className="text-slate-500 text-xs block mb-1">İxtisas:</span> <span>{user.group_info.specialty}</span></div>
+                        </div>
+                        <div className="flex justify-between items-center pt-3 border-t border-slate-700 mt-1">
+                            <span className="text-slate-400">Qrup:</span> <span className="text-[#FF6B00] font-bold text-2xl">{user.group_info.name}</span>
+                        </div>
+                        <button onClick={() => router.push("/chat")} className="mt-2 w-full py-2 bg-[#FF6B00] hover:bg-orange-600 rounded-lg text-white font-bold transition flex items-center justify-center gap-2 shadow-sm text-sm"><span>💬</span> Kollektivə Qoşul</button>
+                    </div>
+                ) : (
+                    <div className="text-center py-6">
+                        <p className="text-yellow-500 mb-3 text-sm">Akademik məlumat yoxdur.</p>
+                        <button onClick={() => router.push("/setup")} className="bg-slate-700 px-6 py-2 rounded-full hover:bg-slate-600 transition text-sm border border-slate-600 text-white font-bold">⚙️ Setup-a Keç</button>
+                    </div>
+                )}
              </div>
         </div>
 
@@ -122,11 +132,13 @@ export default function DashboardPage() {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {newsList.length > 0 ? newsList.map(news => (
                 <div key={news.id} className="bg-slate-800 p-4 rounded-xl border border-slate-700 hover:border-slate-600 transition flex flex-col h-full">
-                    {/* ... (Xəbər kartı eynidir) ... */}
-                    <p className="text-sm text-slate-400 line-clamp-3 flex-1 break-words leading-relaxed">{news.content}</p>
+                    {news.image && (<img src={news.image.startsWith("http") ? news.image : `http://127.0.0.1:8000${news.image}`} alt={news.title} className="w-full h-40 object-cover rounded mb-3"/>)}
+                    <span className="text-[10px] bg-slate-900 px-2 py-1 rounded text-slate-400 self-start mb-2 border border-slate-700 truncate max-w-full">{news.university_name}</span>
+                    <h3 className="font-bold text-md mb-2 line-clamp-2 text-white break-words leading-tight">{news.title}</h3>
+                    <p className="text-xs text-slate-400 line-clamp-3 flex-1 break-words leading-relaxed">{news.content}</p>
                 </div>
             )) : (
-                <div className="col-span-3 text-center p-10 border-2 border-dashed border-slate-800 rounded-2xl text-slate-500 text-sm">
+                <div className="col-span-3 text-center p-10 border-2 border-dashed border-slate-800 rounded-xl text-slate-500 text-sm">
                     Bu süzgəcə uyğun xəbər tapılmadı.
                 </div>
             )}
