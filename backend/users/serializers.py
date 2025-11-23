@@ -1,6 +1,6 @@
-﻿from rest_framework import serializers
+﻿from rest_framework import serializers # <--- MÜTLƏQ YERİNDƏ OLMALIDIR
 from django.contrib.auth import get_user_model
-from .models import UserKYC, News, University, Faculty, Specialty, StudentGroup, MarketItem, FeedPost, FeedComment
+from .models import UserKYC, News, University, Faculty, Specialty, StudentGroup, MarketItem, FeedPost, FeedComment # <--- Bütün modellər bir yerdə
 
 User = get_user_model()
 
@@ -32,50 +32,12 @@ class UserSettingsSerializer(serializers.ModelSerializer):
         fields = ('phone_number',)
         extra_kwargs = {'phone_number': {'required': True}}
 
-# --- 3. PROFIL (GULLƏKEÇİRMƏZ) ---
-class UserProfileSerializer(serializers.ModelSerializer):
-    fin_code = serializers.SerializerMethodField()
-    first_name = serializers.SerializerMethodField()
-    last_name = serializers.SerializerMethodField()
-    status = serializers.SerializerMethodField()
-    group_info = serializers.SerializerMethodField()
-
+# --- 3. XƏBƏRLƏR SERIALIZER-I ---
+class NewsSerializer(serializers.ModelSerializer): # <--- BU SINIF İNDİ YERİNDƏDİR
+    university_name = serializers.CharField(source='university.name', read_only=True, default="Ümumi Xəbər")
     class Meta:
-        model = User
-        fields = ('id', 'phone_number', 'role', 'fin_code', 'first_name', 'last_name', 'status', 'group_info')
-
-    # Sığorta Metodları (KYC yoxdursa None qaytarır)
-    def get_kyc_data(self, obj, field_name):
-        try:
-            if hasattr(obj, 'kyc'):
-                return getattr(obj.kyc, field_name)
-        except Exception:
-            return None
-        return None
-
-    def get_fin_code(self, obj): return self.get_kyc_data(obj, 'fin_code')
-    def get_first_name(self, obj): return self.get_kyc_data(obj, 'first_name')
-    def get_last_name(self, obj): return self.get_kyc_data(obj, 'last_name')
-    def get_status(self, obj): return self.get_kyc_data(obj, 'verification_status')
-    
-    # AKADEMİK MƏLUMATLARI ÇƏKƏN ƏSAS METOD
-    def get_group_info(self, obj):
-        try:
-            if hasattr(obj, 'kyc') and obj.kyc.group:
-                group = obj.kyc.group
-                specialty_name = group.specialty.name if group.specialty else "Qeyd olunmayıb"
-                faculty_name = group.specialty.faculty.name if (group.specialty and group.specialty.faculty) else "Qeyd olunmayıb"
-                uni_name = obj.kyc.university.name if obj.kyc.university else "Qeyd olunmayıb"
-
-                return {
-                    "id": group.id,
-                    "name": group.group_number,
-                    "specialty": specialty_name,
-                    "faculty": faculty_name,
-                    "university": uni_name
-                }
-        except Exception: return None
-        return None
+        model = News
+        fields = ('id', 'title', 'content', 'image', 'created_at', 'university_name')
 
 # --- 4. QEYDİYYAT ---
 class UserRegistrationSerializer(serializers.ModelSerializer):
@@ -120,7 +82,49 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
         )
         return user
 
-# --- 5. MARKETPLACE ---
+# --- 5. PROFIL (GULLƏKEÇİRMƏZ) ---
+class UserProfileSerializer(serializers.ModelSerializer):
+    fin_code = serializers.SerializerMethodField()
+    first_name = serializers.SerializerMethodField()
+    last_name = serializers.SerializerMethodField()
+    status = serializers.SerializerMethodField()
+    group_info = serializers.SerializerMethodField()
+
+    class Meta:
+        model = User
+        fields = ('id', 'phone_number', 'role', 'fin_code', 'first_name', 'last_name', 'status', 'group_info')
+
+    def get_kyc_data(self, obj, field_name):
+        try:
+            if hasattr(obj, 'kyc'):
+                return getattr(obj.kyc, field_name)
+        except Exception: return None
+        return None
+
+    def get_fin_code(self, obj): return self.get_kyc_data(obj, 'fin_code')
+    def get_first_name(self, obj): return self.get_kyc_data(obj, 'first_name')
+    def get_last_name(self, obj): return self.get_kyc_data(obj, 'last_name')
+    def get_status(self, obj): return self.get_kyc_data(obj, 'verification_status')
+    
+    def get_group_info(self, obj):
+        try:
+            if hasattr(obj, 'kyc') and obj.kyc.group:
+                group = obj.kyc.group
+                specialty_name = group.specialty.name if group.specialty else "Qeyd olunmayıb"
+                faculty_name = group.specialty.faculty.name if (group.specialty and group.specialty.faculty) else "Qeyd olunmayıb"
+                uni_name = obj.kyc.university.name if obj.kyc.university else "Qeyd olunmayıb"
+
+                return {
+                    "id": group.id,
+                    "name": group.group_number,
+                    "specialty": specialty_name,
+                    "faculty": faculty_name,
+                    "university": uni_name
+                }
+        except Exception: return None
+        return None
+
+# --- 6. MARKETPLACE ---
 class MarketItemSerializer(serializers.ModelSerializer):
     seller_name = serializers.SerializerMethodField()
     
@@ -133,7 +137,7 @@ class MarketItemSerializer(serializers.ModelSerializer):
         try: return obj.seller.kyc.first_name
         except: return "İstifadəçi"
 
-# --- 6. AXIŞ (FEED) ---
+# --- 7. AXIŞ (FEED) ---
 class FeedCommentSerializer(serializers.ModelSerializer):
     author_name = serializers.SerializerMethodField()
     author_uni = serializers.SerializerMethodField()
