@@ -1,6 +1,7 @@
-﻿from rest_framework import serializers # <--- MÜTLƏQ YERİNDƏ OLMALIDIR
+﻿from rest_framework import serializers 
 from django.contrib.auth import get_user_model
-from .models import UserKYC, News, University, Faculty, Specialty, StudentGroup, MarketItem, FeedPost, FeedComment # <--- Bütün modellər bir yerdə
+from .models import UserKYC, News, University, Faculty, Specialty, StudentGroup, MarketItem, FeedPost, FeedComment
+from rest_framework_simplejwt.serializers import TokenObtainPairSerializer # <--- Əlavə olundu
 
 User = get_user_model()
 
@@ -32,14 +33,35 @@ class UserSettingsSerializer(serializers.ModelSerializer):
         fields = ('phone_number',)
         extra_kwargs = {'phone_number': {'required': True}}
 
-# --- 3. XƏBƏRLƏR SERIALIZER-I ---
-class NewsSerializer(serializers.ModelSerializer): # <--- BU SINIF İNDİ YERİNDƏDİR
+# --- 3. NEWS SERIALIZER ---
+class NewsSerializer(serializers.ModelSerializer): 
     university_name = serializers.CharField(source='university.name', read_only=True, default="Ümumi Xəbər")
     class Meta:
         model = News
         fields = ('id', 'title', 'content', 'image', 'created_at', 'university_name')
 
-# --- 4. QEYDİYYAT ---
+# --- 4. GİRİŞ SERIALIZER-I (FINAL FIX) ---
+class PhoneNumberTokenObtainPairSerializer(TokenObtainPairSerializer):
+    # 🔥 FIX: phone_number sahəsini klassın içində eksplisit (açıq) şəkildə təyin edirik
+    phone_number = serializers.CharField(write_only=True)
+    
+    # Authentikasiya üçün istifadə olunacaq sahə
+    username_field = 'phone_number' 
+
+    def validate(self, attrs):
+        # Təhlükəsizlik üçün .get() istifadə edirik ki, KeyError verməsin
+        phone_number = attrs.get('phone_number')
+        
+        if not phone_number:
+            raise serializers.ValidationError({'phone_number': 'Telefon nömrəsi tələb olunur.'})
+            
+        # 1. phone_number dəyərini JWT-nin gözlədiyi 'username' açarına köçürürük
+        attrs['username'] = phone_number
+        
+        # 2. Validasiya prosesini davam etdiririk
+        return super().validate(attrs)
+
+# --- 5. QEYDİYYAT ---
 class UserRegistrationSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True)
     fin_code = serializers.CharField(required=True, min_length=7, max_length=7)
@@ -82,7 +104,7 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
         )
         return user
 
-# --- 5. PROFIL (GULLƏKEÇİRMƏZ) ---
+# --- 6. PROFIL ---
 class UserProfileSerializer(serializers.ModelSerializer):
     fin_code = serializers.SerializerMethodField()
     first_name = serializers.SerializerMethodField()
@@ -96,8 +118,7 @@ class UserProfileSerializer(serializers.ModelSerializer):
 
     def get_kyc_data(self, obj, field_name):
         try:
-            if hasattr(obj, 'kyc'):
-                return getattr(obj.kyc, field_name)
+            if hasattr(obj, 'kyc'): return getattr(obj.kyc, field_name)
         except Exception: return None
         return None
 
@@ -124,7 +145,7 @@ class UserProfileSerializer(serializers.ModelSerializer):
         except Exception: return None
         return None
 
-# --- 6. MARKETPLACE ---
+# --- 7. MARKETPLACE ---
 class MarketItemSerializer(serializers.ModelSerializer):
     seller_name = serializers.SerializerMethodField()
     
@@ -137,7 +158,7 @@ class MarketItemSerializer(serializers.ModelSerializer):
         try: return obj.seller.kyc.first_name
         except: return "İstifadəçi"
 
-# --- 7. AXIŞ (FEED) ---
+# --- 8. AXIŞ (FEED) ---
 class FeedCommentSerializer(serializers.ModelSerializer):
     author_name = serializers.SerializerMethodField()
     author_uni = serializers.SerializerMethodField()
@@ -176,25 +197,3 @@ class FeedPostSerializer(serializers.ModelSerializer):
         if obj.is_anonymous: return "Universitet Məxfidir"
         try: return obj.author.kyc.university.name
         except: return ""
-        # backend/users/serializers.py SONUNA ƏLAVƏ ET
-
-from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
-from rest_framework import serializers
-
-class PhoneNumberTokenObtainPairSerializer(TokenObtainPairSerializer):
-    # DÜZƏLİŞ 1: Serializer-ə deyirik ki, 'phone_number' adlı bir sahə gözləsin
-    phone_number = serializers.CharField(write_only=True)
-    
-    # DÜZƏLİŞ 2: Authentication üçün istifadə olunacaq sahə
-    username_field = 'phone_number'
-
-    # DÜZƏLİŞ 3: Gələn 'phone_number'-i 'username' adıyla çevirib yoxlamaya göndəririk
-    def validate(self, attrs):
-        # Normalda JWT 'username' axtarır. Biz 'phone_number' dəyərini 'username'-ə köçürürük.
-        attrs['username'] = attrs['phone_number']
-        
-        # 'phone_number' sahəsini silirik ki, valideyinin validasiyası iki dəfə keçməsin
-        del attrs['phone_number'] 
-        
-        # İndi standart JWT validasiyası işləyəcək
-        return super().validate(attrs)
