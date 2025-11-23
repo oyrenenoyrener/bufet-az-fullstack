@@ -1,9 +1,10 @@
 ﻿import uuid
 from django.db import models
-from django.contrib.auth.models import AbstractBaseUser, PermissionsMixin, BaseUserManager
+# 👇 DÜZƏLİŞ: Group və Permission import olunur
+from django.contrib.auth.models import AbstractBaseUser, PermissionsMixin, BaseUserManager, Group, Permission
+from django.conf import settings # Qeyd: settings-ə ehtiyac qalmadı, amma qalsın
 
 # --- 1. UNIVERSITET STRUKTURU ---
-
 class University(models.Model):
     name = models.CharField(max_length=200, verbose_name="Universitet Adı")
     slug = models.SlugField(unique=True, null=True, blank=True, verbose_name="Qısa Ad (Slug)")
@@ -22,9 +23,7 @@ class Faculty(models.Model):
     university = models.ForeignKey(University, on_delete=models.CASCADE, related_name='faculties', verbose_name="Universitet")
     name = models.CharField(max_length=200, verbose_name="Fakültə Adı")
 
-    def __str__(self):
-        return f"{self.name} ({self.university.name})"
-
+    def __str__(self): return f"{self.name} ({self.university.name})"
     class Meta:
         verbose_name = "Fakültə"
         verbose_name_plural = "📚 Fakültələr"
@@ -34,9 +33,7 @@ class Specialty(models.Model):
     name = models.CharField(max_length=200, verbose_name="İxtisas Adı")
     code = models.CharField(max_length=50, null=True, blank=True, verbose_name="İxtisas Kodu")
 
-    def __str__(self):
-        return self.name
-
+    def __str__(self): return self.name
     class Meta:
         verbose_name = "İxtisas"
         verbose_name_plural = "🎓 İxtisaslar"
@@ -51,9 +48,7 @@ class StudentGroup(models.Model):
         if is_new:
             Collective.objects.create(group=self, name=f"{self.group_number} Kollektivi")
 
-    def __str__(self):
-        return self.group_number
-
+    def __str__(self): return self.group_number
     class Meta:
         verbose_name = "Tələbə Qrupu"
         verbose_name_plural = "👥 Tələbə Qrupları"
@@ -65,9 +60,7 @@ class Collective(models.Model):
     name = models.CharField(max_length=200, verbose_name="Otaq Adı")
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="Yaranma Tarixi")
 
-    def __str__(self):
-        return self.name
-
+    def __str__(self): return self.name
     class Meta:
         verbose_name = "Çat Otağı"
         verbose_name_plural = "💬 Çat Otaqları"
@@ -97,13 +90,12 @@ class News(models.Model):
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="Tarix")
     
     def __str__(self): return self.title
-
     class Meta:
         ordering = ['-created_at']
         verbose_name = "Xəbər"
         verbose_name_plural = "📰 Xəbərlər"
 
-# --- 4. USER & KYC ---
+# --- 4. USER & KYC (ƏSAS DÜZƏLİŞ BURADADIR) ---
 
 class CustomUserManager(BaseUserManager):
     def create_user(self, phone_number, password=None, **extra_fields):
@@ -128,6 +120,23 @@ class User(AbstractBaseUser, PermissionsMixin):
     is_verified = models.BooleanField(default=False, verbose_name="Təsdiqlənib?")
     role = models.CharField(max_length=20, choices=ROLE_CHOICES, default='student', verbose_name="Rol")
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="Qeydiyyat Tarixi")
+    
+    # 🔥 FIX 1: RELATED_NAME ƏLAVƏSİ (E304 xətasını həll edir)
+    groups = models.ManyToManyField(
+        Group,
+        verbose_name=('groups'),
+        blank=True,
+        help_text=('The groups this user belongs to.'),
+        related_name="user_custom_groups", 
+    )
+    # 🔥 FIX 2: RELATED_NAME ƏLAVƏSİ
+    user_permissions = models.ManyToManyField(
+        Permission,
+        verbose_name=('user permissions'),
+        blank=True,
+        help_text=('Specific permissions for this user.'),
+        related_name="user_custom_permissions", 
+    )
     
     objects = CustomUserManager()
     USERNAME_FIELD = 'phone_number'
